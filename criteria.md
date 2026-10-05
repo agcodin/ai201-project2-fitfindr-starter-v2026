@@ -41,7 +41,7 @@ This path has no model call in it, so nothing about it varies between runs. An e
 
 ## 3. The item that search found is the item the outfit describes
 
-For 5 runs on queries that match, the `title` of `session["selected_item"]` is the same listing the outfit text talks about, and `session["selected_item"]["id"]` equals the id of `session["search_results"][0]` every time. 5 of 5.
+For 5 runs on queries that match, the `title` of `session["selected_item"]` is the same listing the outfit text talks about, and `session["selected_item"]["id"]` equals the id of `session["search_results"][0]`, on 5 runs out of 5.
 
 **Why this target:**
 State dropping between tools is the failure this project is built around, and it does not look like a state bug from the outside. If the wrong item reaches `suggest_outfit`, the outfit reads perfectly well, just about a different garment. Comparing ids catches the plumbing, and reading the outfit text catches the case where the id is right and the prompt was built from something else. 5 of 5 because this is my own code passing a dict to itself, with no model involved in the comparison.
@@ -59,7 +59,7 @@ The caption calls the model at temperature 0.9, so I cannot ask for exact words.
 
 ## 5. The price ceiling is never exceeded
 
-For 5 queries that name a price ceiling, no listing in `session["search_results"]` costs more than the ceiling, and the ceiling the agent parsed matches the number in the query. 5 of 5.
+For 5 queries that name a price ceiling, no listing in `session["search_results"]` costs more than the ceiling, and the ceiling the agent parsed matches the number in the query, on 5 runs out of 5.
 
 **Why this target:**
 This is the one that silently produces wrong answers rather than visible failures. A regex that misses `$30` gives the user results with no ceiling at all and nothing in the output says so, which is exactly the PowerShell quoting trap `RUNNING.md` warns about. Both halves need checking, because a filter that works on a price the parse got wrong is still wrong. 5 of 5, since both the parse and the filter are deterministic code I wrote.

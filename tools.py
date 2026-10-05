@@ -40,11 +40,11 @@ def size_matches(requested: str, listing_size: str) -> bool:
     """
     Whether a listing's size satisfies a requested one, by size family.
 
-    A plain substring test is wrong in both directions here: "s" is in "us 9"
-    and "l" is in "xl". Letter sizes are compared as tokens split on "/" and
-    whitespace, so "M" matches "M", "S/M" and "M/L" but not "XL". "One Size"
-    satisfies any letter request. Waist and shoe sizes only match a request
-    from the same family.
+    A plain substring test is wrong in both directions, since "s" is in "us 9"
+    and "l" is in "xl". Letter sizes are compared as whole tokens, so "M"
+    matches "M", "S/M" and "M/L" but not "XL". "One Size" satisfies any letter
+    request, and waist and shoe sizes only match a request from their own
+    family.
     """
     want = requested.strip().lower()
     have = listing_size.strip().lower()

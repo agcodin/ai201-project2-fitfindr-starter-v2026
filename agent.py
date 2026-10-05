@@ -20,8 +20,6 @@ import trace
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
 
-PRICE_RE = re.compile(r"(?:under|below|less than|max|up to)?\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:dollars|bucks)?\b", re.I)
-SIZE_RE = re.compile(r"\bsize\s+([a-z0-9/]+)\b|\b(xs|s|m|l|xl|xxl)\b(?!\w)", re.I)
 PARSE_NOISE = re.compile(r"\b(under|below|less than|max|up to|size)\b|\$\s*\d+(\.\d+)?|\b\d+(\.\d+)?\s*(dollars|bucks)\b", re.I)
 
 
@@ -29,9 +27,8 @@ def parse_query(query: str) -> dict:
     """
     Pull a description, a size and a price ceiling out of plain language.
 
-    Regex rather than a model call: parsing the same sentence twice has to give
-    the same answer, and a model call here would add latency and variance to
-    every run for nothing.
+    Regex rather than a model call, because parsing the same sentence twice
+    has to give the same answer both times.
     """
     price = None
     price_match = re.search(r"(?:under|below|less than|max|up to)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)", query, re.I)
