@@ -39,9 +39,7 @@
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
-
-
+FitFindr takes a request for a secondhand clothing item, like "vintage graphic tee under $30, size M", and works out what to do with it. It searches 40 thrift listings for something that fits the description, the size and the price ceiling, looks at what the user already owns, suggests how to wear the find with those pieces, and writes a caption they could post about it. When nothing in the listings matches, it stops after the search and says which part of the request to loosen rather than inventing an item to style.
 
 ---
 
@@ -88,57 +86,75 @@ A second branch sits inside the first path. If `suggest_outfit` comes back empty
 
 ## Sample Run
 
-<!-- Two things go here.
-
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
-
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30, size M'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   Pair the white butterfly print baby tee with the baggy straight-leg dark wash jeans and chunky white sneakers for an effortless Y2K contrast of fitted and loose silhouettes. Layer the vintage black denim jacket on top and add the black crossbody bag to complete the casual, nostalgic look.
+
+Alternatively, tuck the baby tee into the wide-leg khaki trousers secured with the brown leather belt for a softer, earth-toned palette. Slip into the black combat boots and throw on the black cropped zip hoodie to give the outfit an edgy, grunge finish.
+
+  Fit card: I am obsessed with this butterfly print baby tee I just grabbed on depop for $18. It is in amazing shape and has the best Y2K fit. You can dress it down with baggy jeans or lean into an edgy grunge vibe with some combat boots. Shoot me a message if you want to grab it.
+```
+
+The other path, where the branch fires:
+
+```
+$ python agent.py
+
+=== A query it can't ===
+  stopped: Nothing in the listings matches that. Try raising the $5 ceiling, or dropping the size XXS filter, or using different words than "designer ballgown".
+  fit_card is None — it should still be None here
 ```
 
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30)[:2])"
 
+[{'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink'], 'brand': None, 'platform': 'depop'}]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
 
+Tuck the white ribbed tank top into the vintage Levi's 501 jeans, adding the brown leather belt and chunky white sneakers. Layer the vintage black denim jacket on top and finish with the black crossbody bag.
+
+Pull the oversized grey crewneck sweatshirt over the vintage Levi's 501 jeans, cinched at the waist with the brown leather belt, and lace up the black combat boots. Sling the black crossbody bag across your chest to complete the look.
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
 
+Scored this 2003 tour bootleg tee and it's already my favorite piece for throwing on with baggy jeans or wide-leg trousers. Grabbed it on Depop for $24 and the vintage wash is just right. It's in really good condition and the graphic has that perfectly faded grunge look. Hit me up if you want the outfit details.
+```
+
+The guard case, with nothing to caption:
+
+```
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('   ', load_listings()[0]))"
+
+No outfit to caption yet — suggest_outfit returned nothing.
 ```
 
 ---
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
-
-     "I used Claude to help me code" is not enough.
-
-     "I gave Claude my search_listings spec. It returned None on no match
-     instead of an empty list, so I changed it" is the level we want. -->
-
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I gave Claude the `search_listings` spec and asked it to write the size filter.
+- *What came back:* A plain substring test, `size.lower() in listing["size"].lower()`. It passes the obvious cases and the docstring warns about exactly this.
+- *What I changed:* I checked it against the real sizes in the data. `"s" in "us 9"` is True and `"l" in "xl"` is True, so a request for a small top returns shoes. I replaced it with `size_matches`, which splits the listing size into tokens on slashes and spaces, compares letter sizes as whole tokens, treats "One Size" as matching any letter request, and keeps waist and shoe sizes in their own families. That rule is written into the Tool Inventory above because it is part of the spec, not an implementation detail.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I had Claude write the `create_fit_card` prompt from my criterion, which says every card has to name the item's price.
+- *What came back:* Cards that read well but spelled the price out, like "listed on Depop for eighteen dollars".
+- *What I changed:* That would fail my own criterion 4, since a check for the price would be looking for "18". I made the system prompt ask for the price as digits with a dollar sign. Five runs later every card contains the numeral, and the sentence count is still inside the four-sentence limit.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
