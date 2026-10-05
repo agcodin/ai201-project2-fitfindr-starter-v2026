@@ -25,9 +25,7 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+My search is keyword overlap against the title, description and style tags, with no stemming and no synonyms, so phrasing decides whether anything comes back. "Graphic tee" hits the listings that use the word tee, and "t-shirt" may not. I allow one failure in five because the parse is regex and a query written in an order I did not anticipate can leave a stray word in the description that scores everything to zero.
 
 ---
 
@@ -37,66 +35,34 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+This path has no model call in it, so nothing about it varies between runs. An empty list is an empty list, and the branch that reads it is a comparison in my own code. If this ever came out at 4 of 5 it would mean the loop itself is nondeterministic, which would be a worse problem than the one the criterion is checking.
 
 ---
 
-## 3. Something about state
+## 3. The item that search found is the item the outfit describes
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+For 5 runs on queries that match, the `title` of `session["selected_item"]` is the same listing the outfit text talks about, and `session["selected_item"]["id"]` equals the id of `session["search_results"][0]` every time. 5 of 5.
 
 **Why this target:**
-
-
+State dropping between tools is the failure this project is built around, and it does not look like a state bug from the outside. If the wrong item reaches `suggest_outfit`, the outfit reads perfectly well, just about a different garment. Comparing ids catches the plumbing, and reading the outfit text catches the case where the id is right and the prompt was built from something else. 5 of 5 because this is my own code passing a dict to itself, with no model involved in the comparison.
 
 ---
 
-## 4. Something about the fit card
+## 4. The fit card is specific to the item and short enough to post
 
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+Across 5 different items, every fit card is 4 sentences or fewer and names that item's price, and no two cards share their opening sentence. 5 of 5 on length and price, 5 of 5 distinct openings.
 
 **Why this target:**
-
-
+The caption calls the model at temperature 0.9, so I cannot ask for exact words. I can ask for the things I would be unhappy to lose. A card that runs past four sentences is a product description rather than a caption, and a card that omits the price is useless for a thrift find where the price is the point. The distinct-openings check is there because repeated openings are what a cached or zero-temperature run looks like, and it would be easy to mistake that for the model being boring.
 
 ---
 
-## 5. Your choice
+## 5. The price ceiling is never exceeded
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+For 5 queries that name a price ceiling, no listing in `session["search_results"]` costs more than the ceiling, and the ceiling the agent parsed matches the number in the query. 5 of 5.
 
 **Why this target:**
-
-
+This is the one that silently produces wrong answers rather than visible failures. A regex that misses `$30` gives the user results with no ceiling at all and nothing in the output says so, which is exactly the PowerShell quoting trap `RUNNING.md` warns about. Both halves need checking, because a filter that works on a price the parse got wrong is still wrong. 5 of 5, since both the parse and the filter are deterministic code I wrote.
 
 ---
 
@@ -107,7 +73,7 @@ Given a query that matches no listings, the agent stops before calling
      revise it, and that earns credit. But never delete or edit the original
      line. Add the revision underneath it, like this:
 
-         ## 4. Something about the fit card
+         ## 4. The fit card is specific to the item and short enough to post
 
          The fit card is different every time.
 

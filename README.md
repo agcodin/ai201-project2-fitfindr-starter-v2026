@@ -47,59 +47,42 @@
 
 ## Tool Inventory
 
-<!-- Four lines per tool. This is worth 2 points and it's the single most
-     common place students lose them.
-
-     "Returns a list" earns NOTHING. The description has to say what is IN
-     the list.
-
-     The empty case isn't optional either — it's the thing your loop branches
-     on, and if you don't decide it here you'll discover it as a crash in
-     Milestone 5. -->
-
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the 40 listings in `data/` by size and price, scores what is left by keyword overlap against the description, and returns the best matches first. No model call.
+- **Inputs:** `description` (str, required), `size` (str or None), `max_price` (float or None)
+- **Returns:** A list of listing dicts, at most `config.SEARCH_RESULT_LIMIT` of them, ordered by score descending. Each dict has `id`, `title`, `description`, `category`, `style_tags` (list), `size`, `condition`, `price` (float), `colors` (list), `brand` (str or None), `platform`.
+- **When it has nothing:** An empty list `[]`. Never None, never an exception. This is what the loop branches on.
+
+Sizes are matched by family, not by substring. The data holds letter sizes (`M`, `S/M`, `XL (oversized)`), waist sizes (`W30`, `W30 L30`), shoe sizes (`US 8.5`) and `One Size`. A requested letter size matches a listing whose size contains that letter token, so `M` matches `M`, `S/M` and `M/L`, and it also matches anything labelled `One Size`. It does not match `XL`, and it does not match `US 9` or `W30`, which a plain `in` test would wrongly accept.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model how to wear one listing, naming pieces from the user's wardrobe when there are any.
+- **Inputs:** `new_item` (dict, a listing), `wardrobe` (dict with an `items` key holding a list of wardrobe-item dicts, possibly empty)
+- **Returns:** A non-empty str holding one or two outfit suggestions. With a wardrobe, it names specific owned pieces by name. With an empty wardrobe, it returns general styling advice for the item instead.
+- **When it has nothing:** An empty wardrobe is not an error, so it still returns advice. If the model cannot be reached, `generate()` raises `ModelUnavailable` and the loop catches it.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Writes a two-to-four sentence caption about the find, in the voice of someone posting it.
+- **Inputs:** `outfit` (str, the output of `suggest_outfit`), `new_item` (dict, a listing)
+- **Returns:** A str caption of two to four sentences, mentioning the item, its price and its platform once each.
+- **When it has nothing:** If `outfit` is empty or whitespace, it returns the string `"No outfit to caption yet — suggest_outfit returned nothing."` rather than raising or calling the model.
 
 ---
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
+**Branch rule:** If `search_listings` returns an empty list, write a message into `session["error"]` naming the constraint to relax (the size, the price ceiling, or the keywords, whichever were set) and return the session without calling the other two tools. Otherwise take the first result as `session["selected_item"]` and continue to `suggest_outfit`, then `create_fit_card`.
 
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
-**Branch rule:**
+A second branch sits inside the first path. If `suggest_outfit` comes back empty or whitespace, the loop stops there and sets `session["error"]` instead of handing an empty string to `create_fit_card`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Regex, in `agent.py::parse_query`. One pattern pulls a price off `under $30`, `below 30` or `$30`, another pulls a size off `size M` or a bare `XL`, and the rest of the words become the description after the stop words (`looking`, `for`, `under`, `size`) are dropped. I chose regex over asking the model because parsing is deterministic and a model call here would make every run slower and non-repeatable for no gain.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` is set by `new_session`, then `parsed` from `parse_query`, then `search_results` from `search_listings`, then `selected_item` (the first result), then `outfit_suggestion`, then `fit_card`. Each tool reads its input back out of the session rather than from a local variable, so a run that stops early leaves every later field as None.
 
 ---
 
