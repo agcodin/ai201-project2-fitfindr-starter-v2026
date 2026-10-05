@@ -1,5 +1,7 @@
 # FitFindr
 
+Aryan Gaur — AI201 Project 3
+
 > ### 👋 Start here
 >
 > **New to this repo? Read [RUNNING.md](RUNNING.md) first** — setup, every
@@ -16,24 +18,9 @@
 > All three tools are stubs, so that last command will do nothing useful yet.
 > That's the starting position.
 >
-> **The rest of this file is your submission.** Fill it in as you go.
+> **The rest of this file is your submission.**
 
 ---
-
-<!-- ─────────────────────────────────────────────────────────────────────────
-     HOW TO USE THIS FILE
-
-     This is your submission. Fill each section in as you finish the milestone
-     it belongs to — don't leave it all to the end.
-
-     Unit 3 asks for the first five sections. Unit 4 adds the five below them.
-     Leave the unit 4 sections alone until then; they're here so you know
-     what's coming.
-
-     Everything is pasted as TEXT. No screenshots, no images, no video links.
-     A typed block of output gets full credit; a picture of the same output
-     gets none.
-     ───────────────────────────────────────────────────────────────────────── -->
 
 <!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
