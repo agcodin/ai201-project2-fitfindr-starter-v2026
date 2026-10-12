@@ -115,6 +115,8 @@ def search_listings(
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
     terms = _words(description)
+    ordered = [w for w in re.findall(r"[a-z0-9']+", description.lower()) if w in terms]
+    head = ordered[-1] if ordered else ""
     scored = []
 
     for listing in load_listings():
@@ -123,15 +125,20 @@ def search_listings(
         if size and not size_matches(size, listing["size"]):
             continue
 
-        haystack = " ".join([
-            listing["title"],
+        title = _words(listing["title"])
+        kind = _words(listing["category"]) | _words(" ".join(listing["style_tags"]))
+        rest = _words(" ".join([
             listing["description"],
-            listing["category"],
-            " ".join(listing["style_tags"]),
             " ".join(listing["colors"]),
             listing["brand"] or "",
-        ])
-        score = len(terms & _words(haystack))
+        ]))
+        score = (
+            3 * len(terms & title)
+            + 3 * len(terms & kind)
+            + len(terms & (rest - title - kind))
+        )
+        if head and head in (title | kind):
+            score += 6
         if score:
             scored.append((score, listing))
 

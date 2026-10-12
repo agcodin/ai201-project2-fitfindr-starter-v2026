@@ -143,142 +143,161 @@ No outfit to caption yet — suggest_outfit returned nothing.
 - *What came back:* Cards that read well but spelled the price out, like "listed on Depop for eighteen dollars".
 - *What I changed:* That would fail my own criterion 4, since a check for the price would be looking for "18". I made the system prompt ask for the price as digits with a dollar sign. Five runs later every card contains the numeral, and the sentence count is still inside the four-sentence limit.
 
-<!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
-
-     Don't fill these in during unit 3.
-     ═══════════════════════════════════════════════════════════════════ -->
-
 ---
 
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
-
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
+`python run_eval.py --label before` ran all six scenarios five times each, cache off, writing `results/run_2026-10-12_0157_before.md`. The five criteria were then scored against the rules in `criteria.md` by `score.py::score`, which reads each session back and applies them.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Found item is the item the outfit describes | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card short, names the price, distinct openings | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Price ceiling never exceeded | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Real output from try 1, produced by `agent.py::run_agent` over `tools.py` and `mcp_server.py`.
+
+Criterion 1, the happy path:
 
 ```
+selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+search_results: 10
 
+Found this Y2K butterfly print baby tee on depop and it is in such good condition. I love balancing the fitted top with some baggy dark wash jeans and a black denim jacket. Grabbed it for $18.00 and it's already my new favorite piece for everyday outfits.
 ```
 
----
+Criterion 2, the branch, where both later fields stay None:
+
+```
+stopped: Nothing in the listings matches that. Try raising the $5 ceiling, or dropping the size XXS filter, or using different words than "designer ballgown".
+outfit_suggestion: None
+fit_card: None
+```
+
+Criterion 5, the ceiling on `leather boots under $45`, parsed as 45.0 with every result at or under it:
+
+```
+Leather Belt — Brown, Braided | accessories | $12.00
+Mini Shoulder Bag — Tan Leather | accessories | $38.00
+Suede Chelsea Boots — Tan | shoes | $44.00
+```
 
 ## Verdicts and Diagnoses
 
-<!-- MET or MISSED per criterion against LAST UNIT's target, plus a sentence on
-     how you decided.
-
-     Then, for every miss: which of the four places it happened — a tool, the
-     loop's branch, the session, or the model's output — AND the mechanism.
-
-     Not a diagnosis:  "The fit card was bad."
-     A diagnosis:      "The fit card criterion missed on 2 of 5 items. Both had
-                        an empty brand field. My prompt puts the brand in the
-                        first sentence, so the card opened with a blank and read
-                        like a fragment. The tool worked; the prompt assumed a
-                        field that isn't always there."
-
-     Look for a pattern. Three misses on the same tool is one problem, not
-     three. -->
-
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes all three tools | 4 of 5 | MET | 5 of 5 tries returned a fit card with no error set. The target allowed one failure and none happened. |
+| 2 | Impossible query stops before the second tool | 5 of 5 | MET | 5 of 5. I checked all three conditions, not just the message, so a try only passed when `outfit_suggestion` and `fit_card` were both still None and the message named a constraint. |
+| 3 | Found item is the item the outfit describes | 5 of 5 | MET | 5 of 5. The id comparison is the easy half. I also checked that the longest word in the item title appears in the outfit text, which is what catches a right id with a prompt built from something else. |
+| 4 | Fit card short, names the price, distinct openings | 5 of 5 | MET | 5 of 5 on all three halves. Every card was 4 sentences or fewer, every one held the price as digits, and the five opening sentences were all different at temperature 0.9 with the cache off. |
+| 5 | Price ceiling never exceeded | 5 of 5 | MET | 5 of 5. Both halves held, the parse read 45.0 out of "under $45" and no returned listing cost more than that. |
 
-**Diagnoses**
+**Nothing missed, which means my targets were safe.** Four of the five test things my own deterministic code does, and deterministic code either works on every try or none of them. Criterion 2 compares a list length, criterion 3 compares two ids, criterion 5 compares floats. The only criterion with real variance in it is 4, and I wrote it loosely enough that a four-sentence limit and a price in digits were easy for the model to satisfy once the prompt asked for both.
 
+**The one I would tighten, and to what.** Criterion 1 says a matching query completes all three tools, and it never asked whether the item that came back was the right kind of thing. I would rewrite it as "for 5 of 5 queries that name an item type, the top result is in the matching category". That is the failure I actually found this unit, and my criteria could not see it. Searching `leather boots under $45` completed all three tools, passed criterion 1, and handed the user a braided belt.
 
-
----
+**The diagnosis for that failure, since the criteria did not catch it.** The stage is retrieval, inside `search_listings`. Every field was pooled into one string and scored by plain keyword overlap, so a term matching a material counted exactly as much as a term naming the garment. The belt is titled "Leather Belt — Brown, Braided" and the query was "leather boots", so the belt scored on "leather" while the Chelsea boots scored on "boots", and the belt won the tie on price. Nothing about the loop or the prompts was involved.
 
 ## Loop Trace
 
-<!-- One full run, printed step by step, with the MCP call visible in it.
-
-     `python app.py ask '...' --trace` once you've added the trace.step()
-     calls in Milestone 2.
-
-     Worth pasting BOTH the happy path and the empty-search path. The empty
-     one should be visibly shorter, because it stops. If your two traces are
-     the same length, your branch isn't working — and this is the fastest way
-     anyone will ever find that out. -->
-
-**Happy path**
+One full run with the MCP call in it, from `python app.py ask 'vintage graphic tee under $30' --trace`, printed by `trace.py::step`.
 
 ```
-
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] search_listings (over MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 listings
+[3] select item
+      out: Y2K Baby Tee — Butterfly Print
+      →    branch: results found, continuing to suggest_outfit
+[4] suggest_outfit
+      in:  Y2K Baby Tee — Butterfly Print, 10 wardrobe items
+      out: Pair the white butterfly print baby tee with the baggy straight-leg dark wash jeans and chunky white sneakers …
+[5] create_fit_card
+      out: I am obsessed with this butterfly print baby tee I just grabbed on depop for $18. It is in amazing shape and h…
 ```
 
-**Empty search**
+Step 2 is the MCP call. `search_listings` is registered in `mcp_server.py` and reached through `mcp_client.call_tool`, so the agent no longer imports the function it is calling. The return value did not change when I moved it, which is what the starter said to check.
+
+**The three failure modes, triggered on purpose.**
+
+Empty search, the branch in criterion 2:
 
 ```
-
+[2] search_listings (over MCP)
+      out: 0 listings
+[3] branch
+      out: Nothing in the listings matches that. Try raising the $5 ceiling, or dropping the size XXS filter, or using different words than "designer ballgown".
+      →    search came back empty, stopping before suggest_outfit
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+Empty wardrobe, run with `--empty-wardrobe`. `suggest_outfit` switches prompts rather than failing, and describes pieces by type instead of naming items the user does not own:
 
+```
+Layer the cropped jacket over an oversized graphic t-shirt in washed black, paired with slouchy forest green parachute pants and scuffed white canvas sneakers.
+```
 
+Model unreachable, triggered with a deliberately wrong key in the environment:
 
----
+```
+[4] model unavailable
+      out: The model couldn't be reached: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+      →    caught, returning the session instead of raising
+fit_card: None
+```
+
+A fourth path exists for MCP itself. `run_agent` catches `MCPError` the same way, so a server that will not start produces a message in the session rather than a stack trace.
 
 ## The Improvement
 
-<!-- What you changed, why your diagnosis pointed at it, and the after-run in
-     the same table format. One change, measured properly.
+**What I changed:** the scoring inside `search_listings`. It used to pool the title, description, category, style tags, colors and brand into one string and count matching words. Now a match in the title or the category and style tags is worth 3, a match anywhere else is worth 1, and the last meaningful word of the query, which is almost always the item type, adds 6 when it appears in the title or category. One change, in one function.
 
-     `python run_eval.py --label after` -->
-
-**What I changed:**
-
-**Which failure it was meant to fix:**
+**Why I picked it:** the diagnosis above pointed at exactly this. Flat scoring cannot tell a material from a garment, and weighting the item type is the smallest change that can. I did not touch the loop, the prompts or the parse, because none of them were implicated.
 
 ### Run Log — After
 
+`python run_eval.py --label after`, writing `results/run_2026-10-12_0204_after.md`, scored the same way.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Found item is the item the outfit describes | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card short, names the price, distinct openings | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Price ceiling never exceeded | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Did it help, and how do I know:**
+**Did it help?** It helped the agent and it moved none of my criteria, which is the honest answer and an uncomfortable one. All five were already at 5 of 5, so there was no room above them.
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
+To measure it at all I had to write a check my criteria do not contain. I ran eight probe queries that name an item type and counted how often the top result was in the matching category, against the old scoring and the new one.
 
+| | Top result in the right category |
+|---|---|
+| Before | 6 of 8 |
+| After | 7 of 8 |
 
+The query from the diagnosis changed hands. `leather boots under $45` now returns Suede Chelsea Boots first instead of the braided belt, and `denim jacket` returns the Denim Jacket rather than the Denim Vest.
 
----
+That gap between a real improvement and a flat scoreboard is the finding. My criteria measured whether the pipeline ran, not whether it was right, and a system can go from wrong to right without any of them noticing.
 
 ## What's Still Broken
 
-<!-- For each criterion still missed: what you'd do, and why you stopped where
-     you did. "I ran out of time" is fine if it's true. Pretending nothing is
-     left is not. -->
+**No criterion was missed, so nothing here is a miss.** These are the failures the test found anyway.
 
+**The search has no idea what words mean.** `a warm coat` returns nothing, because no listing contains the word coat, and the three jackets are tagged outerwear. `vintage t-shirt` returns a polo shirt first, since "shirt" is in the title and "t-shirt" is not a word the matcher knows. The fix is a small synonym map from everyday words to the categories and tags the data uses, probably ten entries. I stopped because the unit allows one improvement and I had spent it on scoring, and a second change made in the same pass would leave me unable to say which one moved the probes from 6 to 7.
+
+**Probe query 8 of 8 still fails.** `corduroy pants` returns the Corduroy Wide-Leg Pants second, behind another corduroy item, because the head-word bonus fires for both and the tie breaks on price. Ranking ties by price is a decision I never thought about, and it is now load bearing.
+
+**My criteria cannot see the thing I fixed.** That is the real gap. Criterion 1 passes whenever the three tools complete, and completing with the wrong item looks identical to completing with the right one. Next unit the first thing I would change is adding the category check to criterion 1 rather than keeping it as a probe script on the side.
+
+**Moment 3**
+
+- *What I asked for:* in unit 4 I gave Claude the failing query `leather boots under $45`, the three results it returned, and the scoring code, and asked for possible causes without ranking them.
+- *What came back:* three, the keyword matcher weighting all fields equally, the price tiebreak favouring cheap accessories, and the category field being ignored.
+- *What I changed:* I tested the first by weighting title and category matches above description matches, which was not enough on its own, since the belt's title also contains "leather". Adding a bonus for the query's last meaningful word, which is the item type, is what moved the boots to first.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
