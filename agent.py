@@ -17,6 +17,7 @@ import re
 
 import config
 import trace
+from mcp_client import MCPError, call_tool
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
 
@@ -145,21 +146,37 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         count += 1
         trace.check_iterations(count)
         session["parsed"] = parse_query(query)
+        trace.step("parse_query", inputs=query, returned=session["parsed"])
 
         count += 1
         trace.check_iterations(count)
-        session["search_results"] = search_listings(**session["parsed"])
+        session["search_results"] = call_tool("search_listings", session["parsed"])
+        trace.step(
+            "search_listings (over MCP)",
+            inputs=session["parsed"],
+            returned=f"{len(session['search_results'])} listings",
+        )
 
         if not session["search_results"]:
             session["error"] = _nothing_found(session["parsed"])
+            trace.step("branch", returned=session["error"],
+                       note="search came back empty, stopping before suggest_outfit")
             return session
 
         session["selected_item"] = session["search_results"][0]
+        trace.step("select item", returned=session["selected_item"]["title"],
+                   note="branch: results found, continuing to suggest_outfit")
 
         count += 1
         trace.check_iterations(count)
         session["outfit_suggestion"] = suggest_outfit(
             session["selected_item"], session["wardrobe"]
+        )
+        trace.step(
+            "suggest_outfit",
+            inputs=f"{session['selected_item']['title']}, "
+                   f"{len(session['wardrobe'].get('items') or [])} wardrobe items",
+            returned=session["outfit_suggestion"],
         )
 
         if not (session["outfit_suggestion"] or "").strip():
@@ -168,6 +185,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 f"{session['selected_item']['title']} but couldn't come up with an "
                 "outfit for it, so there's no fit card."
             )
+            trace.step("branch", returned=session["error"],
+                       note="no outfit text, stopping before create_fit_card")
             return session
 
         count += 1
@@ -175,9 +194,16 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["fit_card"] = create_fit_card(
             session["outfit_suggestion"], session["selected_item"]
         )
+        trace.step("create_fit_card", returned=session["fit_card"])
 
     except ModelUnavailable as exc:
         session["error"] = f"The model couldn't be reached: {exc}"
+        trace.step("model unavailable", returned=session["error"],
+                   note="caught, returning the session instead of raising")
+    except MCPError as exc:
+        session["error"] = f"The search tool couldn't be reached over MCP: {exc}"
+        trace.step("mcp unavailable", returned=str(exc),
+                   note="caught, returning the session instead of raising")
 
     return session
 
