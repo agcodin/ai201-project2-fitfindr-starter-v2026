@@ -35,7 +35,28 @@ SCENARIOS = [
         "wardrobe": "empty",
         "criterion": None,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
+    {
+        # Criterion 3 — the id in selected_item has to match search_results[0].
+        "name": "state carries the found item into the outfit",
+        "query": "wide-leg trousers under $40",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    {
+        # Criterion 4 — same query each try, so the five cards can be compared
+        # for length, for the price, and for repeated opening sentences.
+        "name": "fit card stays short and names the price",
+        "query": "denim jacket under $50",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # Criterion 5 — a ceiling the data straddles, so a broken parse shows.
+        "name": "price ceiling holds",
+        "query": "leather boots under $45",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
     #
     # Set "criterion" to the number in criteria.md that the scenario tests.
     # "criterion": None means a diagnostic run — useful to have, but it isn't
